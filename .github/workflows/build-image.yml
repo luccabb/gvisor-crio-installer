@@ -10,8 +10,9 @@ on:
 
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/gvisor-crio-installer
-  GVISOR_REF: d47188a8215e   # xw19/gvisor @ issue/gvisor/10313  ==  gVisor PR #13279
-  CRIO_BRANCH: release-1.35  # cri-o; #9974 backport applied from installer/patches/
+  GVISOR_BRANCH: issue/gvisor/10313   # xw19/gvisor branch  ==  gVisor PR #13279
+  GVISOR_REF: d47188a8215e            # pinned commit (build asserts the branch tip still matches)
+  CRIO_BRANCH: release-1.35           # cri-o; #9974 backport applied from installer/patches/
 
 jobs:
   build:
@@ -46,9 +47,10 @@ jobs:
 
       - name: Build runsc + shim (gVisor #13279)
         run: |
-          git init -q /mnt/work/gvisor && cd /mnt/work/gvisor
-          git remote add origin https://github.com/xw19/gvisor.git
-          git fetch --depth 1 origin "$GVISOR_REF" && git checkout -q FETCH_HEAD
+          git clone --depth 1 -b "$GVISOR_BRANCH" https://github.com/xw19/gvisor.git /mnt/work/gvisor
+          cd /mnt/work/gvisor
+          test "$(git rev-parse HEAD)" = "$GVISOR_REF" \
+            || { echo "::error::gvisor branch tip $(git rev-parse HEAD) != pinned $GVISOR_REF — bump GVISOR_REF"; exit 1; }
           bazel --output_user_root=/mnt/work/bazel build //runsc //shim:containerd-shim-runsc-v1
           mkdir -p "$GITHUB_WORKSPACE/installer/out"
           cp -L "$(find -L bazel-bin -name runsc -type f | head -1)" "$GITHUB_WORKSPACE/installer/out/runsc"

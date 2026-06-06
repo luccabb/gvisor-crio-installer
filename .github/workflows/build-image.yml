@@ -11,7 +11,7 @@ on:
 env:
   IMAGE: ghcr.io/${{ github.repository_owner }}/gvisor-crio-installer
   GVISOR_BRANCH: issue/gvisor/10313   # xw19/gvisor branch  ==  gVisor PR #13279
-  GVISOR_REF: d47188a8215e            # pinned commit (build asserts the branch tip still matches)
+  GVISOR_REF: d47188a8215e8bb279d85bfd72cece56d3aed2ed   # pinned commit (build asserts the branch tip still matches)
   CRIO_BRANCH: release-1.35           # cri-o; #9974 backport applied from installer/patches/
 
 jobs:

@@ -43,8 +43,8 @@ The DaemonSet runs a privileged init container on each labeled node that:
 4. restarts crio (decoupled, so it doesn't kill the installer pod).
 
 It's **idempotent** (skips if already installed) and re-runs on every node boot, so it **self-heals** across
-reboots and node replacements. Image: [`appliedcomp/gvisor-crio-installer:1.35.4-amd64`](https://hub.docker.com/r/appliedcomp/gvisor-crio-installer)
-(public).
+reboots and node replacements. Image: [`ghcr.io/luccabb/gvisor-crio-installer:1.35.4-amd64`](https://github.com/luccabb/gvisor-crio-installer/pkgs/container/gvisor-crio-installer)
+(public, built by CI from this repo — see below).
 
 ## Why cri-o needs this (containerd doesn't)
 
@@ -63,12 +63,14 @@ make that path accept runsc. See [`RECIPE.md`](./RECIPE.md) for the full story.
 
 Both track [gVisor issue #10313](https://github.com/google/gvisor/issues/10313).
 
-## Build your own image
+## How the image is built
 
-The binaries + install script are under [`installer/`](./installer). Rebuild + push:
+[`.github/workflows/build-image.yml`](.github/workflows/build-image.yml) builds `runsc` + the shim (gVisor
+#13279) and patched `crio` (cri-o #9974, pinned in [`installer/patches/`](./installer/patches)) **from source**
+on a GitHub runner and publishes the image to GHCR **on every `v*` tag** — reproducible from the repo, no
+manual artifacts. To build it yourself, put the amd64 binaries in `installer/out/` and:
 
 ```bash
-# put amd64 runsc, containerd-shim-runsc-v1, crio (patched) in installer/out/, then:
 cd installer
 docker buildx build --platform linux/amd64 -t <your-namespace>/gvisor-crio-installer:1.35.4-amd64 --push .
 ```

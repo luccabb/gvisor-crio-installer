@@ -18,7 +18,7 @@
 #     2. kubectl apply -f <this-url>
 #     3. Test:  a pod with  runtimeClassName: gvisor  →  `uname -r` = 4.19.0-gvisor
 #
-#   Installer image: docker.io/appliedcomp/gvisor-crio-installer:1.35.4-amd64 (public)
+#   Installer image: ghcr.io/luccabb/gvisor-crio-installer:1.35.4-amd64 (public)
 #   Why cri-o needs this (containerd doesn't): https://github.com/google/gvisor/issues/10313
 # =============================================================================
 apiVersion: node.k8s.io/v1
@@ -51,7 +51,7 @@ spec:
       hostPID: true
       initContainers:
         - name: install
-          image: docker.io/appliedcomp/gvisor-crio-installer:1.35.4-amd64
+          image: ghcr.io/luccabb/gvisor-crio-installer:1.35.4-amd64
           securityContext:
             privileged: true
           command: ["/opt/gvisor-install/install.sh"]

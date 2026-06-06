@@ -1,0 +1,79 @@
+name: build-image
+
+# Builds runsc + containerd-shim-runsc-v1 (gVisor #13279) and patched crio 1.35.4
+# (cri-o release-1.35 + #9974) from source, bakes them into the installer image, and
+# publishes to GHCR. Reproducible from the repo — no manual artifacts.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/gvisor-crio-installer
+  GVISOR_REF: d47188a8215e   # xw19/gvisor @ issue/gvisor/10313  ==  gVisor PR #13279
+  CRIO_BRANCH: release-1.35  # cri-o; #9974 backport applied from installer/patches/
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk + build area on /mnt
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL || true
+          sudo mkdir -p /mnt/work && sudo chown "$USER" /mnt/work
+          df -h / /mnt
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+            git curl ca-certificates build-essential pkg-config unzip python3 \
+            gcc-x86-64-linux-gnu g++-x86-64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            libc6-dev-i386 clang llvm libbpf-dev \
+            libseccomp-dev libgpgme-dev libassuan-dev libdevmapper-dev libbtrfs-dev
+          sudo curl -fsSL -o /usr/local/bin/bazel \
+            https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+          sudo chmod +x /usr/local/bin/bazel
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.4'
+
+      - name: Build runsc + shim (gVisor #13279)
+        run: |
+          git init -q /mnt/work/gvisor && cd /mnt/work/gvisor
+          git remote add origin https://github.com/xw19/gvisor.git
+          git fetch --depth 1 origin "$GVISOR_REF" && git checkout -q FETCH_HEAD
+          bazel --output_user_root=/mnt/work/bazel build //runsc //shim:containerd-shim-runsc-v1
+          mkdir -p "$GITHUB_WORKSPACE/installer/out"
+          cp -L "$(find -L bazel-bin -name runsc -type f | head -1)" "$GITHUB_WORKSPACE/installer/out/runsc"
+          cp -L "$(find -L bazel-bin -name containerd-shim-runsc-v1 -type f | head -1)" "$GITHUB_WORKSPACE/installer/out/containerd-shim-runsc-v1"
+          chmod +x "$GITHUB_WORKSPACE/installer/out/"*
+          "$GITHUB_WORKSPACE/installer/out/runsc" --version | head -1
+
+      - name: Build crio (release-1.35 + cri-o #9974)
+        run: |
+          git clone --depth 1 -b "$CRIO_BRANCH" https://github.com/cri-o/cri-o.git /mnt/work/cri-o
+          cd /mnt/work/cri-o
+          git apply "$GITHUB_WORKSPACE/installer/patches/cri-o-9974-release-1.35.diff"
+          make bin/crio bin/pinns
+          cp bin/crio bin/pinns "$GITHUB_WORKSPACE/installer/out/"
+          "$GITHUB_WORKSPACE/installer/out/crio" --version | head -2
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build + push image
+        run: |
+          TAGS="-t $IMAGE:1.35.4-amd64 -t $IMAGE:latest"
+          [ "${{ github.ref_type }}" = "tag" ] && TAGS="$TAGS -t $IMAGE:${{ github.ref_name }}"
+          docker build $TAGS installer
+          docker push --all-tags "$IMAGE"

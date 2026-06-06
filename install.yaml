@@ -1,26 +1,8 @@
-# gVisor on cri-o (OKE / OCI) — RuntimeClass + installer DaemonSet
-# =============================================================================
-# Enables the gVisor (runsc) sandbox runtime on cri-o nodes.
-#
-#   ⚠️  REQUIREMENTS — READ FIRST:
-#   • cri-o 1.35.x  AND  amd64/x86_64 nodes ONLY. The installer swaps in a
-#     patched `crio 1.35.4` binary; on any other cri-o version it would replace
-#     your crio with the wrong version. The node label below is your safety gate.
-#   • Built from two UNMERGED upstream PRs (experimental):
-#       gVisor  https://github.com/google/gvisor/pull/13279
-#       cri-o   https://github.com/cri-o/cri-o/pull/9974  (backported to release-1.35)
-#   • The DaemonSet does a LIVE crio binary swap + restart on each labeled node
-#     (original saved to /usr/bin/crio.orig). Idempotent; re-runs on boot.
-#
-#   USAGE:
-#     1. Label only the cri-o 1.35.x / amd64 nodes you want gVisor on:
-#          kubectl label node <node> gvisor-crio-install=true
-#     2. kubectl apply -f <this-url>
-#     3. Test:  a pod with  runtimeClassName: gvisor  →  `uname -r` = 4.19.0-gvisor
-#
-#   Installer image: ghcr.io/luccabb/gvisor-crio-installer:1.35.4-amd64 (public)
-#   Why cri-o needs this (containerd doesn't): https://github.com/google/gvisor/issues/10313
-# =============================================================================
+# gVisor (runsc) on cri-o — RuntimeClass + installer DaemonSet.
+# ⚠️  cri-o 1.35.x + amd64 nodes ONLY: the installer swaps in a patched crio 1.35.4 (wrong on other versions).
+#     The gvisor-crio-install=true node label is the safety gate — label only matching nodes:
+#       kubectl label node <node> gvisor-crio-install=true
+# Experimental (unmerged gVisor #13279 + cri-o #9974). Docs: https://github.com/luccabb/gvisor-crio-installer
 apiVersion: node.k8s.io/v1
 kind: RuntimeClass
 metadata:

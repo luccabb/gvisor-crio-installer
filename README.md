@@ -14,11 +14,15 @@ kubectl label node <node> gvisor-crio-install=true        # cri-o 1.35.x amd64 n
 kubectl apply -f https://raw.githubusercontent.com/luccabb/gvisor-crio-installer/main/install.yaml
 ```
 
-Verify: a pod with `runtimeClassName: gvisor` reports `uname -r` = `4.19.0-gvisor`.
-
-A privileged DaemonSet installs `runsc` + the patched `crio` on each labeled node and switches cri-o to the
-`runtime_type="vm"` path (idempotent, self-heals on reboot). Image `ghcr.io/luccabb/gvisor-crio-installer`,
-built from source by [CI](.github/workflows/build-image.yml) — see [`installer/`](./installer).
+Post install, you should be able to ssh to nodes and see:
+```
+$ crio --version
+crio version 1.35.4
+  ...
+$ runsc --version
+runsc version d47188a8215e
+spec: 1.2.1
+```
 
 ## License
 Apache-2.0
